@@ -198,7 +198,7 @@ async function adminLogin() {
         }
 
         adminToken = data.token;
-        sessionStorage.setItem("promatchAdminToken", adminToken);
+        sessionStorage.getItem("promatchAdminToken");
 
         document.getElementById("password").value = "";
         showMessage("Admin login successful.", true);
@@ -277,7 +277,7 @@ function logout() {
 
 <script>
 async function loadMatches() {
-  const token = sessionStorage.getItem("adminToken");
+  const token = sessionStorage.getItem("promatchAdminToken");
   const list = document.getElementById("matchList");
 
   if (!token) {
@@ -341,8 +341,7 @@ async function loadMatches() {
 }
 
 async function editMatch(match) {
-  const token = sessionStorage.getItem("adminToken");
-
+  const token = sessionStorage.getItem("promatchAdminToken");
   const home = prompt("Home team:", match.home_team);
   if (home === null) return;
 
@@ -379,7 +378,7 @@ async function editMatch(match) {
 async function deleteMatch(id) {
   if (!confirm("Are you sure you want to delete this match?")) return;
 
-  const token = sessionStorage.getItem("adminToken");
+  const token = sessionStorage.getItem("promatchAdminToken");
 
   const response = await fetch(
     "https://promatch-platform-api.onrender.com/api/admin/matches/" + id,
