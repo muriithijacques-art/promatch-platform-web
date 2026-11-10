@@ -198,7 +198,7 @@ async function adminLogin() {
         }
 
         adminToken = data.token;
-        sessionStorage.getItem("promatchAdminToken");
+        sessionStorage.setItem("promatchAdminToken", adminToken);
 
         document.getElementById("password").value = "";
         showMessage("Admin login successful.", true);
