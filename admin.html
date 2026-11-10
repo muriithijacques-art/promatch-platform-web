@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProMatch Admin Panel</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 20px;
+    background: #08111f;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    max-width: 650px;
+    margin: 30px auto;
+    background: #142238;
+    padding: 25px;
+    border-radius: 12px;
+}
+
+h1, h2 { color: #facc15; }
+
+input, textarea {
+    width: 100%;
+    padding: 13px;
+    margin: 8px 0 16px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #08111f;
+    color: white;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.checkbox input {
+    width: auto;
+    margin: 0;
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 6px;
+    background: #eab308;
+    color: #111827;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.6;
+}
+
+.message {
+    margin-top: 15px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.hidden { display: none; }
+
+.logout {
+    background: #b91c1c;
+    color: white;
+    margin-top: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>ProMatch Admin</h1>
+<p>Private administrator access</p>
+
+<div id="loginSection">
+
+<h2>Admin Login</h2>
+
+<label>Email</label>
+<input type="email" id="email" placeholder="Administrator email">
+
+<label>Password</label>
+<input type="password" id="password" placeholder="Administrator password">
+
+<button id="loginButton" onclick="adminLogin()">LOGIN</button>
+
+</div>
+
+<div id="dashboard" class="hidden">
+
+<h2>Publish New Match</h2>
+
+<form id="matchForm">
+
+<label>League</label>
+<input type="text" id="league" required placeholder="Premier League">
+
+<label>Home Team</label>
+<input type="text" id="homeTeam" required>
+
+<label>Away Team</label>
+<input type="text" id="awayTeam" required>
+
+<label>Kickoff Date and Time</label>
+<input type="datetime-local" id="kickoff" required>
+
+<label>Prediction</label>
+<input type="text" id="prediction" required placeholder="Example: Home Win">
+
+<label>Full Analysis</label>
+<textarea id="analysis" placeholder="Enter your match analysis..."></textarea>
+
+<label class="checkbox">
+<input type="checkbox" id="freePick">
+Select as one of the 3 Free Matches
+</label>
+
+<button type="submit" id="publishButton">
+PUBLISH MATCH
+</button>
+
+</form>
+
+<button class="logout" onclick="logout()">LOG OUT</button>
+
+</div>
+
+<div id="message" class="message"></div>
+
+</div>
+
+<script>
+const API_URL = "https://promatch-platform-api.onrender.com";
+
+let adminToken = sessionStorage.getItem("promatchAdminToken");
+
+if (adminToken) {
+    showDashboard();
+}
+
+function showDashboard() {
+    document.getElementById("loginSection").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+}
+
+function showMessage(text, success = false) {
+    const message = document.getElementById("message");
+    message.textContent = text;
+    message.style.color = success ? "#4ade80" : "#f87171";
+}
+
+async function adminLogin() {
+    const button = document.getElementById("loginButton");
+    button.disabled = true;
+
+    try {
+        const response = await fetch(API_URL + "/api/admin/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                email: document.getElementById("email").value.trim(),
+                password: document.getElementById("password").value
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Login failed");
+        }
+
+        adminToken = data.token;
+        sessionStorage.setItem("promatchAdminToken", adminToken);
+
+        document.getElementById("password").value = "";
+        showMessage("Admin login successful.", true);
+        showDashboard();
+
+    } catch (error) {
+        showMessage(error.message);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+document.getElementById("matchForm").addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    const button = document.getElementById("publishButton");
+    button.disabled = true;
+
+    try {
+        const kickoffValue = document.getElementById("kickoff").value;
+
+        const response = await fetch(API_URL + "/api/admin/matches", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + adminToken
+            },
+            body: JSON.stringify({
+                league: document.getElementById("league").value.trim(),
+                home_team: document.getElementById("homeTeam").value.trim(),
+                away_team: document.getElementById("awayTeam").value.trim(),
+                kickoff_at: new Date(kickoffValue).toISOString(),
+                prediction: document.getElementById("prediction").value.trim(),
+                analysis: document.getElementById("analysis").value.trim(),
+                is_free_pick: document.getElementById("freePick").checked,
+                published: true
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                logout();
+            }
+            throw new Error(data.error || "Could not publish match");
+        }
+
+        showMessage("Match published successfully! Match ID: " + data.match_id, true);
+        document.getElementById("matchForm").reset();
+
+    } catch (error) {
+        showMessage(error.message);
+    } finally {
+        button.disabled = false;
+    }
+});
+
+function logout() {
+    sessionStorage.removeItem("promatchAdminToken");
+    adminToken = null;
+
+    document.getElementById("dashboard").classList.add("hidden");
+    document.getElementById("loginSection").classList.remove("hidden");
+    document.getElementById("password").value = "";
+
+    showMessage("You have logged out.");
+}
+</script>
+
+</body>
+</html>
